@@ -1,0 +1,26 @@
+service: aws-nodejs-lambda
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+
+package:
+  artifact: .serverless/bundle.zip
+  patterns:
+    - "!*.test.ts"
+
+functions:
+  main:
+    handler: src/main.main 
+    events:
+      - http:
+          path: /
+          method: ANY
+
+plugins:
+  - serverless-offline
+  - serverless-esbuild
+
+custom:
+  jest:

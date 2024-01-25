@@ -1,0 +1,72 @@
+name: deploy
+run-name: 🚀 Deploy Lambda in Github Package
+on: 
+  push:
+    branches:
+      - main
+jobs:
+  tag:
+    name: 🏷️ Generate Version Tag
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: write
+    outputs:
+      NEW_VERSION: ${{ steps.version.outputs.new_version }}
+      NEW_TAG: ${{ steps.version.outputs.new_tag }}
+      PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+      PREVIOUS_VERSION: ${{ steps.version.outputs.previous_version }}
+      RELEASE_TYPE: ${{ steps.version.outputs.release_type }}
+      CHANGELOG: ${{ steps.version.outputs.changelog }}
+    steps:
+      - name: �️ Checkout
+        uses: actions/checkout@v4
+      - name: �️ Generate Version Tag
+        id: version
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: v
+  test:
+    name: 🧪 Test
+    runs-on: ubuntu-latest
+    needs:  
+      - tag
+    steps:
+      - name: 🏗️ Checkout
+        uses: actions/checkout@v4
+      - name: 🏗️ Setup Node
+        uses: wyvox/action-setup-pnpm@v3
+        with:
+          node-version: 20
+          pnpm-version: 8
+      - name: 📦 Install dependencies
+        run: pnpm install
+      - name: 🧪 Run linter
+        run: pnpm dlx @biomejs/biome check .
+      - name: 🧪 Run unit tests
+        run: pnpm run test
+      - name: 🧪 Bun e2e tests
+        run: pnpm run test:e2e
+  build:
+    name: 🏗️ Build
+    runs-on: ubuntu-latest
+    needs:  
+      - test
+      - tag
+    steps:
+      - name: 🏗️ Checkout
+        uses: actions/checkout@v4
+      - name: 🏗️ Setup Node
+        uses: wyvox/action-setup-pnpm@v3
+        with:
+          node-version: 20
+          pnpm-version: 8
+      - name: 📦 Install dependencies
+        run: pnpm install
+      - name: 🏗️ Package lambda
+        run: pnpm run package
+      - name: 📦 Upload bundle
+        uses: actions/upload-artifact@v2
+        with:
+          name: bundle-${{ needs.tag.outputs.NEW_TAG }}
+          path: ./.serverless/aws-nodejs-lambda.zip
