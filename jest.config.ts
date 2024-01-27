@@ -10,9 +10,15 @@ const config: Config = {
 		"!src/**/index.ts",
 		"!src/**/types.ts",
 	],
+	cache: true,
+	cacheDirectory: "<rootDir>/.cache/jest",
+	displayName: {
+		name: "Unit",
+		color: "blue",
+	},
+	preset: "ts-jest",
 	coverageDirectory: "coverage",
 	coverageProvider: "v8",
-	rootDir: "./",
 	testMatch: ["<rootDir>/src/**/*.test.ts"],
 	transform: {
 		"^.+\\.tsx?$": "esbuild-jest",

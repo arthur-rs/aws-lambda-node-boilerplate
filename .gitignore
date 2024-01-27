@@ -10,3 +10,6 @@ jspm_packages
 
 # Coverage directory
 coverage
+
+# Jest cache directory
+.cache

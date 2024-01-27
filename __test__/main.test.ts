@@ -1,20 +1,25 @@
-import { APIGatewayEvent } from "aws-lambda";
-import { main } from "../src/main";
+import axios from "axios";
 
-describe("main", () => {
-	it("should return a 200 response", async () => {
-		const response = await main({
-			body: "test",
-			requestContext: {
-				requestId: "test",
-			},
-		} as unknown as APIGatewayEvent);
+describe("Test EndToEnd", () => {
+	const agent = axios.create({
+		baseURL: "http://localhost:3000/dev",
+	});
 
-		expect(response.statusCode).toEqual(200);
-		expect(typeof response.body).toEqual("string");
-		expect(JSON.parse(response.body)).toEqual({
-			body: "test",
-			requestId: "test",
+	test("[POST] /", async () => {
+		const response = await agent.post("/", {
+			name: "John",
 		});
+
+		expect(response.status).toBe(200);
+		expect(JSON.parse(response.data.body)).toEqual({
+			name: "John",
+		});
+	});
+
+	it("[GET] /", async () => {
+		const response = await agent.get("/");
+
+		expect(response.status).toBe(200);
+		expect(JSON.parse(response.data.body)).toBeNull();
 	});
 });

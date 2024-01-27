@@ -6,7 +6,6 @@ provider:
   runtime: nodejs20.x
 
 package:
-  artifact: .serverless/bundle.zip
   patterns:
     - "!*.test.ts"
 
@@ -21,6 +20,3 @@ functions:
 plugins:
   - serverless-offline
   - serverless-esbuild
-
-custom:
-  jest:
