@@ -1,11 +1,15 @@
 name: deploy
-run-name: 🚀 Deploy Lambda in Github Package
+run-name: 🚀 Deploy Lambda in Fragment
 on: 
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 jobs:
   tag:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     name: 🏷️ Generate Version Tag
     runs-on: ubuntu-latest
     permissions: 
@@ -14,13 +18,12 @@ jobs:
       NEW_VERSION: ${{ steps.version.outputs.new_version }}
       NEW_TAG: ${{ steps.version.outputs.new_tag }}
       PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
-      PREVIOUS_VERSION: ${{ steps.version.outputs.previous_version }}
       RELEASE_TYPE: ${{ steps.version.outputs.release_type }}
       CHANGELOG: ${{ steps.version.outputs.changelog }}
     steps:
-      - name: �️ Checkout
+      - name: 🏷️ Checkout
         uses: actions/checkout@v4
-      - name: �️ Generate Version Tag
+      - name: 🏷️ Generate Version Tag
         id: version
         uses: mathieudutour/github-tag-action@v6.1
         with:
@@ -29,8 +32,6 @@ jobs:
   test:
     name: 🧪 Test
     runs-on: ubuntu-latest
-    needs:  
-      - tag
     steps:
       - name: 🏗️ Checkout
         uses: actions/checkout@v4
@@ -41,13 +42,67 @@ jobs:
           pnpm-version: 8
       - name: 📦 Install dependencies
         run: pnpm install
+      - name: 📦 Install serverless
+        run: pnpm install -g serverless
       - name: 🧪 Run linter
         run: pnpm dlx @biomejs/biome check .
       - name: 🧪 Run unit tests
         run: pnpm run test
+      - name: 📃 Upload coverage
+        id: coverage
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage-${{ github.sha }}
+          path: ./coverage
       - name: 🧪 Bun e2e tests
         run: pnpm run test:e2e
+      - name: 🔎 Run scan
+        uses: ShiftLeftSecurity/scan-action@master
+        env:
+          WORKSPACE: https://github.com/${{ github.repository }}/blob/${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 📃 Upload scan report
+        uses: actions/upload-artifact@v2
+        id: scan-report
+        with:
+          name: scan-report-${{ github.sha }}
+          path: reports
+      - name: 📃 Publish comment in PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data } = await github.actions.getArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: '${{ steps.coverage.outputs.artifact_id }}'
+            })
+            const { data: scanData } = await github.actions.getArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: '${{ steps.scan-report.outputs.artifact_id }}'
+            })
+            const coverage = JSON.parse(data)
+            const scan = JSON.parse(scanData)
+            const comment = `
+            ## Coverage
+            | Statements | Branches | Functions | Lines |
+            | ---------- | -------- | --------- | ----- |
+            | ${coverage.total.statements.pct}% | ${coverage.total.branches.pct}% | ${coverage.total.functions.pct}% | ${coverage.total.lines.pct}% |
+            ## Scan
+            | High | Medium | Low | Info |
+            | ---- | ------ | --- | ---- |
+            | ${scan.high} | ${scan.medium} | ${scan.low} | ${scan.info} |
+            `
+            await github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            })
   build:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     name: 🏗️ Build
     runs-on: ubuntu-latest
     needs:  
@@ -63,6 +118,8 @@ jobs:
           pnpm-version: 8
       - name: 📦 Install dependencies
         run: pnpm install
+      - name: 📦 Install serverless
+        run: pnpm install -g serverless
       - name: 🏗️ Package lambda
         run: pnpm run package
       - name: 📦 Upload bundle
