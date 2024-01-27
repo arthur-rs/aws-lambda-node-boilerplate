@@ -1,10 +1,6 @@
-import axios from "axios";
+import { agent } from "./agent";
 
 describe("Test EndToEnd", () => {
-	const agent = axios.create({
-		baseURL: "http://localhost:3000/dev",
-	});
-
 	test("[POST] /", async () => {
 		const response = await agent.post("/", {
 			name: "John",
